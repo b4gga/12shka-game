@@ -197,6 +197,7 @@ function spawnEnemyIfNeeded(dt) {
 }
 
 function resetGameState() {
+  keys = {};
   world.platforms = createPlatforms();
   world.player = createPlayer();
   world.enemies = [];
@@ -219,6 +220,7 @@ function restartGame() {
   resetGameState();
   gameState = "running";
   lastTime = performance.now();
+  requestAnimationFrame(gameLoop);
 }
 
 function updateHud() {

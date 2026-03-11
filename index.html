@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <div class="page-wrapper">
   <div class="game-container">
     <header class="hud">
       <div class="hud-left">
@@ -19,14 +20,6 @@
     </header>
 
     <canvas id="gameCanvas" width="960" height="540"></canvas>
-
-    <div class="mobile-controls" id="mobileControls">
-      <div class="dpad">
-        <button type="button" class="btn-mobile btn-left" data-key="arrowleft" aria-label="Влево">←</button>
-        <button type="button" class="btn-mobile btn-right" data-key="arrowright" aria-label="Вправо">→</button>
-      </div>
-      <button type="button" class="btn-mobile btn-jump" data-key=" " aria-label="Прыжок">Прыжок</button>
-    </div>
 
     <div class="overlay" id="startScreen">
       <div class="panel">
@@ -46,6 +39,15 @@
         <button id="restartButton">Играть снова</button>
       </div>
     </div>
+  </div>
+
+  <div class="mobile-controls" id="mobileControls">
+    <div class="dpad">
+      <button type="button" class="btn-mobile btn-left" data-key="arrowleft" aria-label="Влево">←</button>
+      <button type="button" class="btn-mobile btn-right" data-key="arrowright" aria-label="Вправо">→</button>
+    </div>
+    <button type="button" class="btn-mobile btn-jump" data-key=" " aria-label="Прыжок">Прыжок</button>
+  </div>
   </div>
 
   <script src="main.js"></script>
