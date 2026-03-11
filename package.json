@@ -1,0 +1,20 @@
+{
+  "name": "game-of-miron-mushroom",
+  "version": "1.0.0",
+  "description": "Простая HTML5-игра: грибок прыгает на Марио.",
+  "private": true,
+  "scripts": {
+    "start": "start index.html"
+  },
+  "keywords": [
+    "html5",
+    "canvas",
+    "game",
+    "mario",
+    "mushroom"
+  ],
+  "author": "",
+  "license": "UNLICENSED",
+  "dependencies": {}
+}
+

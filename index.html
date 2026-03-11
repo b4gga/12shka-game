@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Грибок против Марио</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="game-container">
+    <header class="hud">
+      <div class="hud-left">
+        <span>Очки: <span id="score">0</span></span>
+        <span>Жизни: <span id="lives">3</span></span>
+      </div>
+      <div class="hud-right">
+        <span>Уровень: <span id="level">1</span></span>
+      </div>
+    </header>
+
+    <canvas id="gameCanvas" width="960" height="540"></canvas>
+
+    <div class="overlay" id="startScreen">
+      <div class="panel">
+        <h1>Грибок против Марио</h1>
+        <p>Ты — боевой грибок. Прыгай на Марио сверху, уворачивайся от столкновений сбоку.</p>
+        <p class="controls">
+          Управление: ← → или A D — ходить, пробел / W / ↑ — прыжок, R — перезапуск.
+        </p>
+        <button id="startButton">Играть</button>
+      </div>
+    </div>
+
+    <div class="overlay hidden" id="gameOverScreen">
+      <div class="panel">
+        <h2 id="gameOverTitle">Игра окончена</h2>
+        <p>Очки: <span id="finalScore">0</span></p>
+        <button id="restartButton">Играть снова</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="main.js"></script>
+</body>
+</html>
+
