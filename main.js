@@ -42,6 +42,9 @@ playerImg.src = "./assets/player.png";
 const enemyImg = new Image();
 enemyImg.src = "./assets/enemy.png";
 
+const bgImg = new Image();
+bgImg.src = "./assets/backstage.png";
+
 let keys = {};
 let lastTime = 0;
 let gameState = "start";
@@ -83,6 +86,50 @@ restartButton.addEventListener("click", () => {
   gameOverScreen.classList.add("hidden");
   restartGame();
 });
+
+// Экранные кнопки для телефона
+function setupMobileControls() {
+  const mobileControls = document.getElementById("mobileControls");
+  if (!mobileControls) return;
+
+  const setKey = (key, pressed) => {
+    if (key === " ") {
+      keys[" "] = pressed;
+    } else {
+      keys[key.toLowerCase()] = pressed;
+    }
+  };
+
+  mobileControls.querySelectorAll(".btn-mobile").forEach((btn) => {
+    const key = btn.getAttribute("data-key");
+    if (!key) return;
+
+    const press = () => setKey(key, true);
+    const release = (e) => {
+      setKey(key, false);
+      e?.preventDefault?.();
+    };
+
+    btn.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      press();
+    });
+    btn.addEventListener("mouseup", release);
+    btn.addEventListener("mouseleave", release);
+
+    btn.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      press();
+    }, { passive: false });
+    btn.addEventListener("touchend", (e) => {
+      release(e);
+      e.preventDefault();
+    }, { passive: false });
+    btn.addEventListener("touchcancel", release);
+  });
+}
+
+setupMobileControls();
 
 function createPlayer() {
   return {
@@ -383,38 +430,39 @@ function updateParticles(dt) {
 }
 
 function drawBackground() {
-  const gradient = ctx.createLinearGradient(0, 0, 0, HEIGHT);
-  gradient.addColorStop(0, COLORS.skyTop);
-  gradient.addColorStop(1, COLORS.skyBottom);
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, WIDTH, HEIGHT);
-
-  ctx.save();
-  ctx.globalAlpha = 0.14;
-  ctx.strokeStyle = "#1f2937";
-  for (let x = 0; x < WIDTH; x += 32) {
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, HEIGHT);
-    ctx.stroke();
+  if (bgImg.complete && bgImg.naturalWidth > 0) {
+    ctx.drawImage(bgImg, 0, 0, WIDTH, HEIGHT);
+  } else {
+    const gradient = ctx.createLinearGradient(0, 0, 0, HEIGHT);
+    gradient.addColorStop(0, COLORS.skyTop);
+    gradient.addColorStop(1, COLORS.skyBottom);
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
   }
-  for (let y = 0; y < HEIGHT; y += 32) {
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(WIDTH, y);
-    ctx.stroke();
-  }
-  ctx.restore();
 
-  ctx.save();
-  ctx.globalAlpha = 0.16;
-  ctx.fillStyle = "#0ea5e9";
-  for (let i = 0; i < 8; i++) {
-    const baseX = (i * 140 + (performance.now() * 0.02) % 1200) % (WIDTH + 260) - 260;
-    const baseY = 120 + (i % 3) * 40;
-    ctx.beginPath();
-    ctx.ellipse(baseX, baseY, 80, 20, 0, 0, Math.PI * 2);
-    ctx.fill();
+  if (!bgImg.complete || bgImg.naturalWidth === 0) {
+    ctx.strokeStyle = "#1f2937";
+    for (let x = 0; x < WIDTH; x += 32) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, HEIGHT);
+      ctx.stroke();
+    }
+    for (let y = 0; y < HEIGHT; y += 32) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(WIDTH, y);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 0.16;
+    ctx.fillStyle = "#0ea5e9";
+    for (let i = 0; i < 8; i++) {
+      const baseX = (i * 140 + (performance.now() * 0.02) % 1200) % (WIDTH + 260) - 260;
+      const baseY = 120 + (i % 3) * 40;
+      ctx.beginPath();
+      ctx.ellipse(baseX, baseY, 80, 20, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
   ctx.restore();
 }

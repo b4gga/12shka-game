@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Грибок против Марио</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -20,12 +20,20 @@
 
     <canvas id="gameCanvas" width="960" height="540"></canvas>
 
+    <div class="mobile-controls" id="mobileControls">
+      <div class="dpad">
+        <button type="button" class="btn-mobile btn-left" data-key="arrowleft" aria-label="Влево">←</button>
+        <button type="button" class="btn-mobile btn-right" data-key="arrowright" aria-label="Вправо">→</button>
+      </div>
+      <button type="button" class="btn-mobile btn-jump" data-key=" " aria-label="Прыжок">Прыжок</button>
+    </div>
+
     <div class="overlay" id="startScreen">
       <div class="panel">
         <h1>Грибок против Марио</h1>
         <p>Ты — боевой грибок. Прыгай на Марио сверху, уворачивайся от столкновений сбоку.</p>
         <p class="controls">
-          Управление: ← → или A D — ходить, пробел / W / ↑ — прыжок, R — перезапуск.
+          ПК: ← → или A D — ходить, пробел — прыжок. Телефон: экранные кнопки внизу.
         </p>
         <button id="startButton">Играть</button>
       </div>
