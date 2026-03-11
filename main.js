@@ -35,14 +35,12 @@ const COLORS = {
   particle: "#facc15",
 };
 
-// Используем фото как спрайты
+// Используем фото как спрайты (относительные пути, чтобы работало на GitHub Pages)
 const playerImg = new Image();
-playerImg.src =
-  "file:///C:/Users/nbugu/.cursor/projects/c-Game-of-Miron/assets/c__Users_nbugu_AppData_Roaming_Cursor_User_workspaceStorage_beedd143ccec82d02f7ba292ab527954_images_image-3d938be8-03b0-4e57-9571-5757cb826076.png";
+playerImg.src = "./assets/player.png";
 
 const enemyImg = new Image();
-enemyImg.src =
-  "file:///C:/Users/nbugu/.cursor/projects/c-Game-of-Miron/assets/c__Users_nbugu_AppData_Roaming_Cursor_User_workspaceStorage_beedd143ccec82d02f7ba292ab527954_images_image-f54125c0-1906-4d3d-acc5-7e9de290b8c0.png";
+enemyImg.src = "./assets/enemy.png";
 
 let keys = {};
 let lastTime = 0;
