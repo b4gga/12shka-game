@@ -20,6 +20,15 @@ const newRecordMsg = document.getElementById("newRecordMsg");
 
 const STORAGE_KEY = "mushroomGameHighscores";
 const MAX_RECORDS = 10;
+const FIREBASE_DB_PATH = "mushroomGame/scores";
+
+let firebaseDb = null;
+try {
+  const cfg = window.FIREBASE_CONFIG;
+  if (cfg && cfg.apiKey && cfg.apiKey !== "YOUR_API_KEY" && cfg.databaseURL) {
+    firebaseDb = firebase.initializeApp(cfg).database();
+  }
+} catch (_) {}
 
 const WIDTH = canvas.width;
 const HEIGHT = canvas.height;
@@ -103,7 +112,9 @@ function getNickname() {
   return val || "Игрок";
 }
 
-function loadHighscores() {
+let cachedRecords = [];
+
+function loadHighscoresFromStorage() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
@@ -114,30 +125,53 @@ function loadHighscores() {
   }
 }
 
-function saveHighscores(records) {
+function saveHighscoresToStorage(records) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(records.slice(0, MAX_RECORDS)));
   } catch (_) {}
 }
 
+function loadHighscores() {
+  return cachedRecords.length ? cachedRecords : loadHighscoresFromStorage();
+}
+
+function fetchHighscoresFromFirebase(callback) {
+  if (!firebaseDb) {
+    callback(loadHighscoresFromStorage());
+    return;
+  }
+  firebaseDb.ref(FIREBASE_DB_PATH).once("value", (snap) => {
+    const val = snap.val();
+    const arr = val ? (Array.isArray(val) ? val : Object.values(val)) : [];
+    const records = arr
+      .filter((r) => r && typeof r.score === "number")
+      .sort((a, b) => b.score - a.score)
+      .slice(0, MAX_RECORDS);
+    cachedRecords = records;
+    callback(records);
+  }).catch(() => {
+    callback(loadHighscoresFromStorage());
+  });
+}
+
 function addRecord(nickname, score) {
   const records = loadHighscores();
   const idx = records.findIndex((r) => r.nickname === nickname);
-  if (idx >= 0) {
-    if (score <= records[idx].score) return;
-    records[idx] = { nickname, score, date: Date.now() };
-  } else {
-    records.push({ nickname, score, date: Date.now() });
-  }
+  if (idx >= 0 && score <= records[idx].score) return;
+  if (idx >= 0) records[idx] = { nickname, score, date: Date.now() };
+  else records.push({ nickname, score, date: Date.now() });
   records.sort((a, b) => b.score - a.score);
-  saveHighscores(records);
+  const top = records.slice(0, MAX_RECORDS);
+  cachedRecords = top;
+  saveHighscoresToStorage(top);
+  if (firebaseDb) firebaseDb.ref(FIREBASE_DB_PATH).set(top).catch(() => {});
 }
 
 function renderHighscores(listEl, records) {
   if (!listEl) return;
-  const top = (records || loadHighscores()).slice(0, MAX_RECORDS);
+  const top = (records || cachedRecords).slice(0, MAX_RECORDS);
   listEl.innerHTML = top.length
-    ? top.map((r) => `<li>${escapeHtml(r.nickname)} — ${r.score}</li>`).join("")
+    ? top.map((r) => `<li>${escapeHtml(String(r.nickname || "?"))} — ${r.score}</li>`).join("")
     : "<li>Пока нет рекордов</li>";
 }
 
@@ -150,7 +184,10 @@ function escapeHtml(s) {
 document.addEventListener("DOMContentLoaded", () => {
   const saved = localStorage.getItem("mushroomGameNickname");
   if (nicknameInput && saved) nicknameInput.value = saved;
-  renderHighscores(highscoresListStart);
+  fetchHighscoresFromFirebase((records) => {
+    cachedRecords = records;
+    renderHighscores(highscoresListStart, records);
+  });
 });
 
 startButton.addEventListener("click", () => {
@@ -451,7 +488,7 @@ function showGameOverScreen(win) {
 
   const nick = getNickname();
   const score = world.score;
-  const records = loadHighscores();
+  const records = [...cachedRecords];
   const prevBest = records.find((r) => r.nickname === nick);
   const isNewRecord = !prevBest || score > prevBest.score;
 
