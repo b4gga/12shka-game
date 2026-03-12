@@ -15,6 +15,7 @@
         <span>Жизни: <span id="lives">3</span></span>
       </div>
       <div class="hud-right">
+        <span id="bonusIndicator"></span>
         <span>Уровень: <span id="level">1</span></span>
       </div>
     </header>
@@ -25,10 +26,16 @@
       <div class="panel">
         <h1>Грибок против Марио</h1>
         <p>Ты — боевой грибок. Прыгай на Марио сверху, уворачивайся от столкновений сбоку.</p>
+        <label for="nicknameInput" class="nickname-label">Никнейм</label>
+        <input type="text" id="nicknameInput" class="nickname-input" maxlength="20" placeholder="Введи имя">
         <p class="controls">
           ПК: ← → или A D — ходить, пробел — прыжок. Телефон: экранные кнопки внизу.
         </p>
         <button id="startButton">Играть</button>
+        <div class="highscores" id="highscoresStart">
+          <h3>Рекорды</h3>
+          <ol id="highscoresListStart"></ol>
+        </div>
       </div>
     </div>
 
@@ -36,6 +43,11 @@
       <div class="panel">
         <h2 id="gameOverTitle">Игра окончена</h2>
         <p>Очки: <span id="finalScore">0</span></p>
+        <p id="newRecordMsg" class="new-record hidden">Новый рекорд!</p>
+        <div class="highscores" id="highscoresGameOver">
+          <h3>Рекорды</h3>
+          <ol id="highscoresListGameOver"></ol>
+        </div>
         <button id="restartButton">Играть снова</button>
       </div>
     </div>

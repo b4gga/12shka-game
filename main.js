@@ -10,8 +10,16 @@ const restartButton = document.getElementById("restartButton");
 const scoreEl = document.getElementById("score");
 const livesEl = document.getElementById("lives");
 const levelEl = document.getElementById("level");
+const bonusIndicatorEl = document.getElementById("bonusIndicator");
 const finalScoreEl = document.getElementById("finalScore");
 const gameOverTitleEl = document.getElementById("gameOverTitle");
+const nicknameInput = document.getElementById("nicknameInput");
+const highscoresListStart = document.getElementById("highscoresListStart");
+const highscoresListGameOver = document.getElementById("highscoresListGameOver");
+const newRecordMsg = document.getElementById("newRecordMsg");
+
+const STORAGE_KEY = "mushroomGameHighscores";
+const MAX_RECORDS = 10;
 
 const WIDTH = canvas.width;
 const HEIGHT = canvas.height;
@@ -31,7 +39,7 @@ const COLORS = {
   mushroomStem: "#fde68a",
   plumberHat: "#ef4444",
   plumberBody: "#0ea5e9",
-  textShadow: "rgba(15,23,42,0.9)",
+  textShadow: "#0f172a",
   particle: "#facc15",
 };
 
@@ -54,10 +62,23 @@ const world = {
   player: null,
   enemies: [],
   particles: [],
+  powerUps: [],
   score: 0,
   lives: 3,
   level: 1,
   spawnTimer: 0,
+  powerUpSpawnTimer: 12,
+  slowmoTimer: 0,
+  scoreMultiplier: 1,
+  scoreMultiplierTimer: 0,
+  kills: 0,
+  healAnim: null,
+};
+
+const POWERUP_TYPES = {
+  slowmo: { label: "Замедление", color: "#8b5cf6", duration: 6 },
+  score2x: { label: "×2 очки", color: "#facc15", duration: 10 },
+  score3x: { label: "×3 очки", color: "#f97316", duration: 8 },
 };
 
 window.addEventListener("keydown", (e) => {
@@ -77,7 +98,66 @@ window.addEventListener("keyup", (e) => {
   keys[e.key.toLowerCase()] = false;
 });
 
+function getNickname() {
+  const val = (nicknameInput?.value || "").trim();
+  return val || "Игрок";
+}
+
+function loadHighscores() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveHighscores(records) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(records.slice(0, MAX_RECORDS)));
+  } catch (_) {}
+}
+
+function addRecord(nickname, score) {
+  const records = loadHighscores();
+  const idx = records.findIndex((r) => r.nickname === nickname);
+  if (idx >= 0) {
+    if (score <= records[idx].score) return;
+    records[idx] = { nickname, score, date: Date.now() };
+  } else {
+    records.push({ nickname, score, date: Date.now() });
+  }
+  records.sort((a, b) => b.score - a.score);
+  saveHighscores(records);
+}
+
+function renderHighscores(listEl, records) {
+  if (!listEl) return;
+  const top = (records || loadHighscores()).slice(0, MAX_RECORDS);
+  listEl.innerHTML = top.length
+    ? top.map((r) => `<li>${escapeHtml(r.nickname)} — ${r.score}</li>`).join("")
+    : "<li>Пока нет рекордов</li>";
+}
+
+function escapeHtml(s) {
+  const div = document.createElement("div");
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const saved = localStorage.getItem("mushroomGameNickname");
+  if (nicknameInput && saved) nicknameInput.value = saved;
+  renderHighscores(highscoresListStart);
+});
+
 startButton.addEventListener("click", () => {
+  const nick = getNickname();
+  try {
+    localStorage.setItem("mushroomGameNickname", nick);
+  } catch (_) {}
   startScreen.classList.add("hidden");
   startGame();
 });
@@ -156,15 +236,50 @@ function createPlatforms() {
     y: HEIGHT - groundHeight,
     width: WIDTH + 80,
     height: groundHeight,
+    moving: false,
   });
 
-  platforms.push({ x: 160, y: 360, width: 180, height: 22 });
-  platforms.push({ x: 460, y: 320, width: 200, height: 22 });
-  platforms.push({ x: 780, y: 340, width: 140, height: 22 });
-  platforms.push({ x: 260, y: 240, width: 160, height: 22 });
-  platforms.push({ x: 620, y: 220, width: 180, height: 22 });
+  const floating = [
+    { x: 160, y: 430, w: 180, h: 22 },
+    { x: 460, y: 350, w: 200, h: 22 },
+    { x: 780, y: 390, w: 140, h: 22 },
+    { x: 260, y: 270, w: 160, h: 22 },
+    { x: 620, y: 180, w: 180, h: 22 },
+  ];
+
+  floating.forEach((f) => {
+    const vx = (Math.random() - 0.5) * 60 + (Math.random() < 0.5 ? 1 : -1) * 50;
+    const xMin = 20;
+    const xMax = WIDTH - f.w - 20;
+    platforms.push({
+      x: f.x,
+      y: f.y,
+      width: f.w,
+      height: f.h,
+      vx,
+      vy: 0,
+      xMin,
+      xMax,
+      moving: true,
+    });
+  });
 
   return platforms;
+}
+
+function updatePlatforms(dt) {
+  for (const plat of world.platforms) {
+    if (!plat.moving) continue;
+    plat.x += plat.vx * dt;
+    if (plat.x <= plat.xMin) {
+      plat.x = plat.xMin;
+      plat.vx = -plat.vx;
+    }
+    if (plat.x >= plat.xMax) {
+      plat.x = plat.xMax;
+      plat.vx = -plat.vx;
+    }
+  }
 }
 
 function createEnemy(level) {
@@ -196,16 +311,110 @@ function spawnEnemyIfNeeded(dt) {
   world.enemies.push(createEnemy(world.level));
 }
 
+function createPowerUp() {
+  const floating = world.platforms.filter((p) => p.moving && p.y < HEIGHT - 80 && p.width > 100);
+  if (floating.length === 0) return null;
+  const plat = floating[Math.floor(Math.random() * floating.length)];
+  const platIdx = world.platforms.indexOf(plat);
+  const types = ["slowmo", "score2x", "score3x"];
+  const type = types[Math.floor(Math.random() * types.length)];
+  const size = 28;
+  const relX = 20 + Math.random() * (plat.width - 40 - size);
+  const relY = -size - 8;
+  return {
+    x: plat.x + relX,
+    y: plat.y + relY,
+    width: size,
+    height: size,
+    type,
+    bobOffset: Math.random() * Math.PI * 2,
+    platformIdx: platIdx,
+    relX,
+    relY,
+  };
+}
+
+function spawnPowerUpIfNeeded(dt) {
+  world.powerUpSpawnTimer -= dt;
+  if (world.powerUpSpawnTimer > 0) return;
+  world.powerUpSpawnTimer = 10 + Math.random() * 12;
+  const pu = createPowerUp();
+  if (pu) world.powerUps.push(pu);
+}
+
+function handlePowerUpCollection() {
+  const p = world.player;
+  for (let i = world.powerUps.length - 1; i >= 0; i--) {
+    const pu = world.powerUps[i];
+    if (!rectsOverlap(p, pu)) continue;
+    world.powerUps.splice(i, 1);
+    const info = POWERUP_TYPES[pu.type];
+    if (!info) continue;
+    if (pu.type === "slowmo") {
+      world.slowmoTimer = Math.max(world.slowmoTimer, info.duration);
+    } else if (pu.type === "score2x" || pu.type === "score3x") {
+      world.scoreMultiplier = pu.type === "score3x" ? 3 : 2;
+      world.scoreMultiplierTimer = info.duration;
+    }
+    world.particles.push(...createBurst(pu.x + pu.width / 2, pu.y + pu.height / 2, 8));
+  }
+}
+
+function updatePowerUps(dt) {
+  world.powerUps.forEach((pu) => {
+    pu.bobOffset += dt * 4;
+    if (pu.platformIdx != null && world.platforms[pu.platformIdx]) {
+      const plat = world.platforms[pu.platformIdx];
+      pu.x = plat.x + pu.relX;
+      pu.y = plat.y + pu.relY;
+    }
+  });
+  if (world.slowmoTimer > 0) world.slowmoTimer -= dt;
+  if (world.scoreMultiplierTimer > 0) {
+    world.scoreMultiplierTimer -= dt;
+    if (world.scoreMultiplierTimer <= 0) world.scoreMultiplier = 1;
+  }
+}
+
+function drawPowerUp(pu) {
+  const info = POWERUP_TYPES[pu.type];
+  if (!info) return;
+  ctx.save();
+  const bob = Math.sin(pu.bobOffset) * 3;
+  ctx.translate(pu.x + pu.width / 2, pu.y + pu.height / 2 + bob);
+  ctx.fillStyle = info.color;
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(0, 0, pu.width / 2 - 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "#fff";
+  ctx.font = "bold 12px system-ui";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const sym = pu.type === "slowmo" ? "⏱" : pu.type === "score3x" ? "×3" : "×2";
+  ctx.fillText(sym, 0, 0);
+  ctx.restore();
+}
+
 function resetGameState() {
   keys = {};
   world.platforms = createPlatforms();
   world.player = createPlayer();
   world.enemies = [];
   world.particles = [];
+  world.powerUps = [];
   world.score = 0;
   world.lives = 3;
   world.level = 1;
   world.spawnTimer = 1.2;
+  world.powerUpSpawnTimer = 8;
+  world.slowmoTimer = 0;
+  world.scoreMultiplier = 1;
+  world.scoreMultiplierTimer = 0;
+  world.kills = 0;
+  world.healAnim = null;
   updateHud();
 }
 
@@ -227,12 +436,32 @@ function updateHud() {
   scoreEl.textContent = world.score.toString();
   livesEl.textContent = world.lives.toString();
   levelEl.textContent = world.level.toString();
+  const parts = [];
+  if (world.slowmoTimer > 0) parts.push(`⏱ ${world.slowmoTimer.toFixed(1)}с`);
+  if (world.scoreMultiplier > 1 && world.scoreMultiplierTimer > 0) {
+    parts.push(`×${world.scoreMultiplier} ${world.scoreMultiplierTimer.toFixed(1)}с`);
+  }
+  if (bonusIndicatorEl) bonusIndicatorEl.textContent = parts.length ? parts.join(" · ") : "";
 }
 
 function showGameOverScreen(win) {
   gameState = "gameover";
   finalScoreEl.textContent = world.score.toString();
   gameOverTitleEl.textContent = win ? "Ты победил!" : "Грибок раздавлен";
+
+  const nick = getNickname();
+  const score = world.score;
+  const records = loadHighscores();
+  const prevBest = records.find((r) => r.nickname === nick);
+  const isNewRecord = !prevBest || score > prevBest.score;
+
+  addRecord(nick, score);
+
+  if (newRecordMsg) {
+    newRecordMsg.classList.toggle("hidden", !isNewRecord);
+  }
+  renderHighscores(highscoresListGameOver);
+
   gameOverScreen.classList.remove("hidden");
 }
 
@@ -302,33 +531,79 @@ function handlePlayerMovement(dt) {
   }
 }
 
-function moveWithCollisions(entity, dt) {
+function getPlatformsForEntity(includeMoving) {
+  return world.platforms.filter((p) => includeMoving || !p.moving);
+}
+
+function moveWithCollisions(entity, dt, includeMovingPlatforms = true) {
   entity.onGround = false;
+  const platforms = getPlatformsForEntity(includeMovingPlatforms);
 
   entity.x += entity.vx * dt;
-  for (const plat of world.platforms) {
-    if (!rectsOverlap(entity, plat)) continue;
+  for (let px = 0; px < 3; px++) {
+    let any = false;
+    for (const plat of platforms) {
+      if (!rectsOverlap(entity, plat)) continue;
 
-    if (entity.vx > 0) {
-      entity.x = plat.x - entity.width;
-    } else if (entity.vx < 0) {
-      entity.x = plat.x + plat.width;
+      const overlapLeft = (entity.x + entity.width) - plat.x;
+      const overlapRight = (plat.x + plat.width) - entity.x;
+      if (overlapLeft < overlapRight) {
+        entity.x = plat.x - entity.width;
+      } else {
+        entity.x = plat.x + plat.width;
+      }
+      entity.vx = 0;
+      any = true;
+      break;
     }
-    entity.vx = 0;
+    if (!any) break;
   }
 
   entity.y += entity.vy * dt;
-  for (const plat of world.platforms) {
-    if (!rectsOverlap(entity, plat)) continue;
 
-    if (entity.vy > 0) {
+  for (let pass = 0; pass < 3; pass++) {
+    let resolved = false;
+    const overlapping = platforms
+      .filter((plat) => rectsOverlap(entity, plat))
+      .map((plat) => {
+        const overlapTop = (entity.y + entity.height) - plat.y;
+        const overlapBottom = (plat.y + plat.height) - entity.y;
+        return { plat, overlapTop, overlapBottom };
+      });
+
+    if (overlapping.length === 0) break;
+
+    overlapping.sort((a, b) => {
+      if (entity.vy > 0) {
+        return a.plat.y - b.plat.y;
+      }
+      return (b.plat.y + b.plat.height) - (a.plat.y + a.plat.height);
+    });
+
+    const { plat, overlapTop, overlapBottom } = overlapping[0];
+
+    if (entity.vy > 0 && overlapTop < overlapBottom) {
       entity.y = plat.y - entity.height;
       entity.vy = 0;
       entity.onGround = true;
-    } else if (entity.vy < 0) {
-      entity.y = plat.y + plat.height;
+      if (plat.moving) entity.x += plat.vx * dt;
+      resolved = true;
+    } else if (entity.vy < 0 && overlapBottom <= overlapTop) {
+      entity.y = plat.y + plat.height + 2;
+      entity.vy = 60;
+      resolved = true;
+    } else if (overlapTop <= overlapBottom) {
+      entity.y = plat.y - entity.height;
       entity.vy = 0;
+      entity.onGround = true;
+      if (plat.moving) entity.x += plat.vx * dt;
+      resolved = true;
+    } else {
+      entity.y = plat.y + plat.height + 2;
+      entity.vy = Math.min(entity.vy, 60);
+      resolved = true;
     }
+    if (!resolved) break;
   }
 }
 
@@ -367,6 +642,50 @@ function createBurst(x, y, count) {
   return particles;
 }
 
+function createHealBurst(x, y, count) {
+  const particles = [];
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+    const speed = 80 + Math.random() * 100;
+    particles.push({
+      x,
+      y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 120,
+      life: 0.6 + Math.random() * 0.3,
+      size: 4 + Math.random() * 2,
+      color: "#22c55e",
+    });
+  }
+  return particles;
+}
+
+function updateHealAnim(dt) {
+  if (!world.healAnim) return;
+  const a = world.healAnim;
+  a.y += a.vy * dt;
+  a.vy += 200 * dt;
+  a.life -= dt;
+  if (a.life <= 0) world.healAnim = null;
+}
+
+function drawHealAnim() {
+  if (!world.healAnim) return;
+  const a = world.healAnim;
+  ctx.save();
+  ctx.globalAlpha = Math.min(1, a.life / 0.3);
+  ctx.font = "bold 28px system-ui";
+  ctx.fillStyle = "#22c55e";
+  ctx.strokeStyle = "#14532d";
+  ctx.lineWidth = 3;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const text = "+1 ❤";
+  ctx.strokeText(text, a.x, a.y);
+  ctx.fillText(text, a.x, a.y);
+  ctx.restore();
+}
+
 function handleEnemies(dt) {
   for (const e of world.enemies) {
     if (!e.alive) {
@@ -375,7 +694,7 @@ function handleEnemies(dt) {
     }
 
     e.vy += GRAVITY * dt;
-    moveWithCollisions(e, dt);
+    moveWithCollisions(e, dt, false);
 
     if (e.onGround) {
       e.vx = Math.sign(e.vx) * Math.abs(e.vx);
@@ -403,9 +722,22 @@ function handlePlayerEnemyCollisions() {
     if (p.vy > verticalVelocityThreshold && playerBottom - enemyTop < e.height * 0.55) {
       e.alive = false;
       e.squashTimer = 0.25;
-      world.score += 100;
+      world.score += Math.floor(100 * world.scoreMultiplier);
+      world.kills += 1;
       if (world.score % 700 === 0) {
         world.level += 1;
+      }
+      if (world.kills % 10 === 0) {
+        world.lives += 1;
+        world.healAnim = {
+          x: p.x + p.width / 2,
+          y: p.y,
+          life: 1.2,
+          vy: -120,
+        };
+        world.particles.push(
+          ...createHealBurst(p.x + p.width / 2, p.y + p.height / 2, 12)
+        );
       }
       updateHud();
       world.particles.push(
@@ -443,6 +775,8 @@ function drawBackground() {
   }
 
   if (!bgImg.complete || bgImg.naturalWidth === 0) {
+    ctx.save();
+    ctx.globalAlpha = 1;
     ctx.strokeStyle = "#1f2937";
     for (let x = 0; x < WIDTH; x += 32) {
       ctx.beginPath();
@@ -456,7 +790,7 @@ function drawBackground() {
       ctx.lineTo(WIDTH, y);
       ctx.stroke();
     }
-    ctx.globalAlpha = 0.16;
+    ctx.globalAlpha = 1;
     ctx.fillStyle = "#0ea5e9";
     for (let i = 0; i < 8; i++) {
       const baseX = (i * 140 + (performance.now() * 0.02) % 1200) % (WIDTH + 260) - 260;
@@ -498,7 +832,7 @@ function drawPlatforms() {
     ctx.closePath();
     ctx.fill();
 
-    ctx.fillStyle = "rgba(15,23,42,0.4)";
+    ctx.fillStyle = "#0f172a";
     ctx.fillRect(x + 2, y + radius + 4, w - 4, 4);
   }
 }
@@ -581,7 +915,7 @@ function drawParticles() {
   for (const p of world.particles) {
     const t = p.life;
     ctx.globalAlpha = Math.max(0, t / 0.6);
-    ctx.fillStyle = COLORS.particle;
+    ctx.fillStyle = p.color || COLORS.particle;
     ctx.beginPath();
     ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
     ctx.fill();
@@ -590,39 +924,39 @@ function drawParticles() {
 }
 
 function drawForeground() {
-  ctx.save();
-  ctx.globalAlpha = 0.24;
-  const gradient = ctx.createLinearGradient(0, HEIGHT * 0.6, 0, HEIGHT);
-  gradient.addColorStop(0, "rgba(15,23,42,0)");
-  gradient.addColorStop(1, "rgba(15,23,42,0.8)");
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, HEIGHT * 0.6, WIDTH, HEIGHT * 0.4);
-  ctx.restore();
 }
 
 function gameLoop(timestamp) {
   if (gameState !== "running") return;
 
-  const dt = Math.min(0.033, (timestamp - lastTime) / 1000);
+  let dt = Math.min(0.033, (timestamp - lastTime) / 1000);
   lastTime = timestamp;
+  if (world.slowmoTimer > 0) dt *= 0.35;
 
   if (world.player.invincibleTimer > 0) {
     world.player.invincibleTimer -= dt;
   }
 
+  updatePlatforms(dt);
   handlePlayerMovement(dt);
   handleEnemies(dt);
   handlePlayerEnemyCollisions();
+  handlePowerUpCollection();
+  updatePowerUps(dt);
+  updateHealAnim(dt);
   updateParticles(dt);
   spawnEnemyIfNeeded(dt);
+  spawnPowerUpIfNeeded(dt);
+
+  if (world.slowmoTimer > 0 || world.scoreMultiplierTimer > 0) updateHud();
 
   drawBackground();
   drawPlatforms();
-  for (const e of world.enemies) {
-    drawEnemy(e);
-  }
+  for (const pu of world.powerUps) drawPowerUp(pu);
+  for (const e of world.enemies) drawEnemy(e);
   drawMushroom(world.player);
   drawParticles();
+  drawHealAnim();
   drawForeground();
 
   requestAnimationFrame(gameLoop);

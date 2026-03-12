@@ -123,6 +123,74 @@ canvas {
   color: #9ca3af;
 }
 
+.nickname-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.nickname-input {
+  display: block;
+  width: 100%;
+  max-width: 200px;
+  margin: 0 auto 12px;
+  padding: 8px 12px;
+  font-size: 14px;
+  border-radius: 8px;
+  border: 1px solid #334155;
+  background: #0f172a;
+  color: #e5e7eb;
+  text-align: center;
+}
+
+.nickname-input:focus {
+  outline: none;
+  border-color: #22c55e;
+}
+
+.highscores {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #334155;
+}
+
+.highscores h3 {
+  font-size: 14px;
+  color: #94a3b8;
+  margin-bottom: 8px;
+}
+
+.highscores ol {
+  list-style: none;
+  counter-reset: rank;
+  font-size: 13px;
+  color: #cbd5f5;
+}
+
+.highscores li {
+  counter-increment: rank;
+  padding: 2px 0;
+}
+
+.highscores li::before {
+  content: counter(rank) ". ";
+  font-weight: 600;
+  color: #22c55e;
+  margin-right: 6px;
+}
+
+.new-record {
+  color: #22c55e;
+  font-weight: 600;
+  font-size: 15px;
+  margin: 4px 0;
+}
+
+.new-record.hidden {
+  display: none;
+}
+
 button {
   margin-top: 8px;
   padding: 8px 18px;
